@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Three-Body Problem</title>
+  <script type="importmap">{
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/"
+    }
+  }</script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #000005;
+      overflow: hidden;
+      font-family: 'Courier New', monospace;
+    }
+
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #hud {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(0, 5, 20, 0.75);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 100, 255, 0.3);
+      border-radius: 10px;
+      padding: 16px 20px;
+      color: #88aaff;
+      min-width: 260px;
+      user-select: none;
+    }
+
+    #hud h3 {
+      color: #aaccff;
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      opacity: 0.7;
+    }
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+      gap: 10px;
+    }
+
+    .control-row label {
+      font-size: 11px;
+      width: 72px;
+      color: #7799cc;
+      flex-shrink: 0;
+    }
+
+    .control-row input[type="range"] {
+      flex: 1;
+      height: 4px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(0, 80, 200, 0.4);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .control-row input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #4488ff;
+      cursor: pointer;
+      box-shadow: 0 0 6px #4488ff;
+    }
+
+    .control-row .val {
+      font-size: 11px;
+      width: 30px;
+      text-align: right;
+      color: #aaccff;
+    }
+
+    .body-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .focus-btn {
+      flex: none;
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      font-size: 13px;
+      line-height: 24px;
+      text-align: center;
+      letter-spacing: 0;
+      border-radius: 50%;
+      opacity: 0.6;
+    }
+
+    .focus-btn.active {
+      opacity: 1;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid rgba(0, 100, 255, 0.2);
+      margin: 10px 0;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    button {
+      flex: 1;
+      padding: 7px 0;
+      background: rgba(0, 60, 180, 0.3);
+      border: 1px solid rgba(0, 100, 255, 0.4);
+      border-radius: 5px;
+      color: #88aaff;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    button:hover {
+      background: rgba(0, 80, 220, 0.5);
+      border-color: rgba(0, 150, 255, 0.7);
+      color: #ccddff;
+    }
+
+    button.active {
+      background: rgba(0, 100, 255, 0.4);
+      border-color: #4488ff;
+      color: #cce0ff;
+    }
+
+    #info {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      color: rgba(80, 120, 200, 0.5);
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-align: right;
+      pointer-events: none;
+    }
+
+    #info div { margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div id="hud">
+    <h3>Three-Body Problem</h3>
+
+    <div class="control-row">
+      <label>Speed</label>
+      <input type="range" id="speed" min="0.1" max="5" step="0.05" value="1">
+      <span class="val" id="speed-val">1.0</span>
+    </div>
+
+    <div class="control-row">
+      <label>Gravity G</label>
+      <input type="range" id="gSlider" min="0.1" max="5" step="0.05" value="1">
+      <span class="val" id="g-val">1.0</span>
+    </div>
+
+    <div class="control-row">
+      <label>Trail</label>
+      <input type="range" id="trailSlider" min="0" max="20000" step="100" value="350">
+      <span class="val" id="trail-val">350</span>
+    </div>
+
+    <hr class="divider">
+
+    <div class="control-row">
+      <span class="body-dot" style="background:#ff4400;box-shadow:0 0 6px #ff4400"></span>
+      <label>Mass 1</label>
+      <input type="range" id="mass0" min="0.5" max="5" step="0.1" value="1.5">
+      <span class="val" id="mass0-val">1.5</span>
+      <button class="focus-btn" id="focus0" title="Focus camera">◎</button>
+    </div>
+
+    <div class="control-row">
+      <span class="body-dot" style="background:#4488ff;box-shadow:0 0 6px #4488ff"></span>
+      <label>Mass 2</label>
+      <input type="range" id="mass1" min="0.5" max="5" step="0.1" value="1.5">
+      <span class="val" id="mass1-val">1.5</span>
+      <button class="focus-btn" id="focus1" title="Focus camera">◎</button>
+    </div>
+
+    <div class="control-row">
+      <span class="body-dot" style="background:#ffcc00;box-shadow:0 0 6px #ffcc00"></span>
+      <label>Mass 3</label>
+      <input type="range" id="mass2" min="0.5" max="5" step="0.1" value="1.5">
+      <span class="val" id="mass2-val">1.5</span>
+      <button class="focus-btn" id="focus2" title="Focus camera">◎</button>
+    </div>
+
+    <hr class="divider">
+
+    <div class="btn-row">
+      <button id="resetBtn">RESET</button>
+      <button id="pauseBtn">PAUSE</button>
+      <button id="fig8Btn">FIGURE-8</button>
+    </div>
+  </div>
+
+  <div id="info">
+    <div>DRAG to orbit &nbsp;|&nbsp; SCROLL to zoom</div>
+    <div id="time-display">T = 0.00</div>
+  </div>
+
+  <script type="module" src="simulation.js"></script>
+</body>
+</html>
