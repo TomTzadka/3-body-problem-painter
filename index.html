@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Three-Body Problem</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Three-Body Painter</title>
   <script type="importmap">{
     "imports": {
       "three": "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js",
@@ -17,26 +17,26 @@
       background: #000005;
       overflow: hidden;
       font-family: 'Courier New', monospace;
+      -webkit-tap-highlight-color: transparent;
     }
 
-    canvas {
-      display: block;
-      width: 100vw;
-      height: 100vh;
-    }
+    canvas { display: block; width: 100vw; height: 100vh; }
 
+    /* ── HUD ── */
     #hud {
       position: fixed;
       bottom: 20px;
       left: 20px;
-      background: rgba(0, 5, 20, 0.75);
-      backdrop-filter: blur(10px);
+      background: rgba(0, 5, 20, 0.82);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       border: 1px solid rgba(0, 100, 255, 0.3);
       border-radius: 10px;
-      padding: 16px 20px;
+      padding: 14px 18px;
       color: #88aaff;
-      min-width: 260px;
+      width: 272px;
       user-select: none;
+      z-index: 10;
     }
 
     #hud h3 {
@@ -44,20 +44,28 @@
       font-size: 11px;
       letter-spacing: 3px;
       text-transform: uppercase;
-      margin-bottom: 14px;
-      opacity: 0.7;
+      margin-bottom: 12px;
+      opacity: 0.8;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
 
+    #hud-toggle-arrow { display: none; font-style: normal; font-size: 14px; }
+
+    #hud-body { /* all controls below header */ }
+
+    /* ── Controls ── */
     .control-row {
       display: flex;
       align-items: center;
-      margin-bottom: 10px;
-      gap: 10px;
+      margin-bottom: 9px;
+      gap: 8px;
     }
 
     .control-row label {
       font-size: 11px;
-      width: 72px;
+      width: 68px;
       color: #7799cc;
       flex-shrink: 0;
     }
@@ -71,62 +79,53 @@
       border-radius: 2px;
       outline: none;
       cursor: pointer;
+      touch-action: none;
     }
 
     .control-row input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
-      appearance: none;
-      width: 12px;
-      height: 12px;
+      width: 14px; height: 14px;
       border-radius: 50%;
       background: #4488ff;
       cursor: pointer;
       box-shadow: 0 0 6px #4488ff;
     }
 
-    .control-row .val {
+    .val {
       font-size: 11px;
-      width: 30px;
+      width: 28px;
       text-align: right;
       color: #aaccff;
+      flex-shrink: 0;
     }
 
     .body-dot {
-      width: 8px;
-      height: 8px;
+      width: 8px; height: 8px;
       border-radius: 50%;
       flex-shrink: 0;
     }
 
     .focus-btn {
       flex: none;
-      width: 24px;
-      height: 24px;
+      width: 26px; height: 26px;
       padding: 0;
       font-size: 13px;
-      line-height: 24px;
+      line-height: 26px;
       text-align: center;
       letter-spacing: 0;
       border-radius: 50%;
-      opacity: 0.6;
+      opacity: 0.55;
+      flex-shrink: 0;
     }
-
-    .focus-btn.active {
-      opacity: 1;
-      box-shadow: 0 0 8px currentColor;
-    }
+    .focus-btn.active { opacity: 1; box-shadow: 0 0 8px #4488ff; }
 
     .divider {
       border: none;
       border-top: 1px solid rgba(0, 100, 255, 0.2);
-      margin: 10px 0;
+      margin: 8px 0;
     }
 
-    .btn-row {
-      display: flex;
-      gap: 8px;
-      margin-top: 4px;
-    }
+    .btn-row { display: flex; gap: 6px; margin-bottom: 4px; }
 
     button {
       flex: 1;
@@ -136,18 +135,17 @@
       border-radius: 5px;
       color: #88aaff;
       font-family: 'Courier New', monospace;
-      font-size: 11px;
+      font-size: 10px;
       letter-spacing: 1px;
       cursor: pointer;
       transition: background 0.15s, border-color 0.15s;
+      touch-action: manipulation;
     }
-
-    button:hover {
+    button:hover, button:active {
       background: rgba(0, 80, 220, 0.5);
       border-color: rgba(0, 150, 255, 0.7);
       color: #ccddff;
     }
-
     button.active {
       background: rgba(0, 100, 255, 0.4);
       border-color: #4488ff;
@@ -156,161 +154,225 @@
 
     select {
       width: 100%;
-      margin-top: 8px;
+      margin-top: 6px;
       padding: 7px 8px;
       background: rgba(0, 60, 180, 0.3);
       border: 1px solid rgba(0, 100, 255, 0.4);
       border-radius: 5px;
       color: #88aaff;
       font-family: 'Courier New', monospace;
-      font-size: 11px;
+      font-size: 10px;
       letter-spacing: 1px;
       cursor: pointer;
       outline: none;
       appearance: none;
       -webkit-appearance: none;
     }
+    select option { background: #000820; color: #88aaff; }
 
-    select:hover {
-      border-color: rgba(0, 150, 255, 0.7);
-      color: #ccddff;
+    /* ── User Presets ── */
+    #userPresets { margin-top: 6px; }
+
+    .preset-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+    .preset-name {
+      flex: 1;
+      font-size: 10px;
+      color: #7799cc;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .preset-load, .preset-del {
+      flex: none !important;
+      width: 26px;
+      padding: 4px 0;
+      font-size: 11px;
     }
 
-    select option {
-      background: #000820;
-      color: #88aaff;
-    }
-
+    /* ── Info overlay ── */
     #info {
       position: fixed;
-      top: 20px;
-      right: 20px;
+      top: 14px;
+      right: 14px;
       color: rgba(80, 120, 200, 0.5);
-      font-size: 11px;
+      font-size: 10px;
       letter-spacing: 1px;
       text-align: right;
       pointer-events: none;
+      z-index: 5;
     }
+    #info div { margin-bottom: 3px; }
 
-    #info div { margin-bottom: 4px; }
+    /* ── Mobile ── */
+    @media (max-width: 700px) {
+      #hud {
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        border-radius: 16px 16px 0 0;
+        border-bottom: none;
+        padding: 12px 16px;
+        max-height: 72vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        transform: translateY(calc(100% - 44px));
+        transition: transform 0.3s ease;
+      }
+
+      #hud.expanded { transform: translateY(0); }
+
+      #hud h3 { cursor: pointer; margin-bottom: 0; }
+      #hud.expanded h3 { margin-bottom: 12px; }
+      #hud-toggle-arrow { display: inline; }
+
+      /* Larger touch targets */
+      .control-row input[type="range"]::-webkit-slider-thumb {
+        width: 20px; height: 20px;
+      }
+      button { padding: 10px 0; font-size: 11px; }
+      .focus-btn { width: 32px; height: 32px; line-height: 32px; }
+
+      #info { display: none; }
+    }
   </style>
 </head>
 <body>
   <canvas id="canvas"></canvas>
 
   <div id="hud">
-    <h3>Three-Body Problem</h3>
+    <h3 id="hud-header">
+      Three-Body Painter
+      <span id="hud-toggle-arrow">▲</span>
+    </h3>
 
-    <div class="control-row">
-      <label>Speed</label>
-      <input type="range" id="speed" min="0.1" max="50" step="0.5" value="1">
-      <span class="val" id="speed-val">1.0</span>
-    </div>
+    <div id="hud-body">
 
-    <div class="control-row">
-      <label>Gravity G</label>
-      <input type="range" id="gSlider" min="0.1" max="5" step="0.05" value="1">
-      <span class="val" id="g-val">1.0</span>
-    </div>
+      <div class="control-row">
+        <label>Speed</label>
+        <input type="range" id="speed" min="0.1" max="50" step="0.5" value="1">
+        <span class="val" id="speed-val">1.0</span>
+      </div>
 
-    <div class="control-row">
-      <label>Trail</label>
-      <input type="range" id="trailSlider" min="0" max="20000" step="100" value="20000">
-      <span class="val" id="trail-val">∞</span>
-    </div>
+      <div class="control-row">
+        <label>Gravity G</label>
+        <input type="range" id="gSlider" min="0.1" max="5" step="0.05" value="1">
+        <span class="val" id="g-val">1.0</span>
+      </div>
 
-    <hr class="divider">
+      <div class="control-row">
+        <label>Trail</label>
+        <input type="range" id="trailSlider" min="0" max="20000" step="100" value="20000">
+        <span class="val" id="trail-val">∞</span>
+      </div>
 
-    <div class="control-row">
-      <span class="body-dot" style="background:#ff4400;box-shadow:0 0 6px #ff4400"></span>
-      <label>Mass 1</label>
-      <input type="range" id="mass0" min="0.5" max="5" step="0.1" value="1.5">
-      <span class="val" id="mass0-val">1.5</span>
-      <button class="focus-btn" id="focus0" title="Focus camera">◎</button>
-    </div>
-
-    <div class="control-row">
-      <span class="body-dot" style="background:#4488ff;box-shadow:0 0 6px #4488ff"></span>
-      <label>Mass 2</label>
-      <input type="range" id="mass1" min="0.5" max="5" step="0.1" value="1.5">
-      <span class="val" id="mass1-val">1.5</span>
-      <button class="focus-btn" id="focus1" title="Focus camera">◎</button>
-    </div>
-
-    <div class="control-row">
-      <span class="body-dot" style="background:#ffcc00;box-shadow:0 0 6px #ffcc00"></span>
-      <label>Mass 3</label>
-      <input type="range" id="mass2" min="0.5" max="5" step="0.1" value="1.5">
-      <span class="val" id="mass2-val">1.5</span>
-      <button class="focus-btn" id="focus2" title="Focus camera">◎</button>
-    </div>
-
-    <hr class="divider">
-
-    <div class="btn-row">
-      <button id="resetBtn">RESET</button>
-      <button id="pauseBtn">PAUSE</button>
-    </div>
-
-    <div class="control-row">
-      <label>Scale</label>
-      <input type="range" id="scaleSlider" min="1" max="8" step="0.5" value="3">
-      <span class="val" id="scale-val">3.0</span>
-    </div>
-
-    <select id="choreographySelect">
-      <option value="">— CHOREOGRAPHY —</option>
-      <option value="figure8">Figure-8</option>
-      <option value="butterfly1">Butterfly I</option>
-      <option value="butterfly2">Butterfly II</option>
-      <option value="moth1">Moth I</option>
-      <option value="moth2">Moth II</option>
-      <option value="dragonfly">Dragonfly</option>
-      <option value="braid">Braid</option>
-    </select>
-
-    <div class="btn-row" style="margin-top:8px">
-      <button id="canvasModeBtn">CANVAS MODE</button>
-      <button id="saveBtn">SAVE</button>
-    </div>
-
-    <div id="brushPanel" style="display:none">
       <hr class="divider">
-      <div style="font-size:10px;color:#7799cc;letter-spacing:2px;margin-bottom:8px">BRUSH</div>
+
+      <div class="control-row">
+        <span class="body-dot" style="background:#ff4400;box-shadow:0 0 5px #ff4400"></span>
+        <label>Mass 1</label>
+        <input type="range" id="mass0" min="0.5" max="5" step="0.1" value="1.5">
+        <span class="val" id="mass0-val">1.5</span>
+        <button class="focus-btn" id="focus0">◎</button>
+      </div>
+
+      <div class="control-row">
+        <span class="body-dot" style="background:#4488ff;box-shadow:0 0 5px #4488ff"></span>
+        <label>Mass 2</label>
+        <input type="range" id="mass1" min="0.5" max="5" step="0.1" value="1.5">
+        <span class="val" id="mass1-val">1.5</span>
+        <button class="focus-btn" id="focus1">◎</button>
+      </div>
+
+      <div class="control-row">
+        <span class="body-dot" style="background:#ffcc00;box-shadow:0 0 5px #ffcc00"></span>
+        <label>Mass 3</label>
+        <input type="range" id="mass2" min="0.5" max="5" step="0.1" value="1.5">
+        <span class="val" id="mass2-val">1.5</span>
+        <button class="focus-btn" id="focus2">◎</button>
+      </div>
+
+      <hr class="divider">
+
       <div class="btn-row">
-        <button class="brush-btn active" id="brush0">ROUND</button>
-        <button class="brush-btn" id="brush1">CALLIG</button>
-        <button class="brush-btn" id="brush2">SPRAY</button>
-        <button class="brush-btn" id="brush3">INK</button>
-        <button class="brush-btn" id="brush4">MARKER</button>
+        <button id="resetBtn">RESET</button>
+        <button id="pauseBtn">PAUSE</button>
       </div>
-      <div class="btn-row" style="margin-top:6px">
-        <button id="paintModeBtn" class="active">WORLD</button>
-        <button id="clearPaintBtn">CLEAR</button>
+
+      <div class="control-row" style="margin-top:6px">
+        <label>Scale</label>
+        <input type="range" id="scaleSlider" min="1" max="8" step="0.5" value="3">
+        <span class="val" id="scale-val">3.0</span>
+      </div>
+
+      <select id="choreographySelect">
+        <option value="">— CHOREOGRAPHY —</option>
+        <option value="figure8">Figure-8</option>
+        <option value="butterfly1">Butterfly I</option>
+        <option value="butterfly2">Butterfly II</option>
+        <option value="moth1">Moth I</option>
+        <option value="moth2">Moth II</option>
+        <option value="dragonfly">Dragonfly</option>
+        <option value="braid">Braid</option>
+      </select>
+
+      <hr class="divider">
+
+      <div class="btn-row">
+        <button id="canvasModeBtn">CANVAS MODE</button>
+        <button id="saveBtn">SAVE PNG</button>
+      </div>
+
+      <div id="brushPanel" style="display:none">
+        <hr class="divider">
+        <div style="font-size:10px;color:#7799cc;letter-spacing:2px;margin-bottom:7px">BRUSH TYPE</div>
+        <div class="btn-row">
+          <button class="brush-btn active" id="brush0">ROUND</button>
+          <button class="brush-btn" id="brush1">CALLIG</button>
+          <button class="brush-btn" id="brush2">SPRAY</button>
+          <button class="brush-btn" id="brush3">INK</button>
+          <button class="brush-btn" id="brush4">MARKER</button>
+        </div>
+        <div class="btn-row" style="margin-top:5px">
+          <button id="paintModeBtn" class="active">WORLD</button>
+          <button id="clearPaintBtn">CLEAR</button>
+        </div>
+        <hr class="divider">
+        <div style="font-size:10px;color:#7799cc;letter-spacing:2px;margin-bottom:7px">BRUSH WIDTH</div>
+        <div class="control-row">
+          <span class="body-dot" style="background:#ff4400;box-shadow:0 0 4px #ff4400"></span>
+          <input type="range" id="bw0" min="1" max="20" step="0.5" value="4">
+          <span class="val" id="bw0-val">4</span>
+        </div>
+        <div class="control-row">
+          <span class="body-dot" style="background:#4488ff;box-shadow:0 0 4px #4488ff"></span>
+          <input type="range" id="bw1" min="1" max="20" step="0.5" value="4">
+          <span class="val" id="bw1-val">4</span>
+        </div>
+        <div class="control-row">
+          <span class="body-dot" style="background:#ffcc00;box-shadow:0 0 4px #ffcc00"></span>
+          <input type="range" id="bw2" min="1" max="20" step="0.5" value="4">
+          <span class="val" id="bw2-val">4</span>
+        </div>
       </div>
 
       <hr class="divider">
-      <div style="font-size:10px;color:#7799cc;letter-spacing:2px;margin-bottom:8px">WIDTH</div>
-      <div class="control-row">
-        <span class="body-dot" style="background:#ff4400;box-shadow:0 0 4px #ff4400"></span>
-        <input type="range" id="bw0" min="1" max="20" step="0.5" value="4">
-        <span class="val" id="bw0-val">4</span>
+      <div class="btn-row">
+        <button id="savePresetBtn">SAVE STATE</button>
       </div>
-      <div class="control-row">
-        <span class="body-dot" style="background:#4488ff;box-shadow:0 0 4px #4488ff"></span>
-        <input type="range" id="bw1" min="1" max="20" step="0.5" value="4">
-        <span class="val" id="bw1-val">4</span>
-      </div>
-      <div class="control-row">
-        <span class="body-dot" style="background:#ffcc00;box-shadow:0 0 4px #ffcc00"></span>
-        <input type="range" id="bw2" min="1" max="20" step="0.5" value="4">
-        <span class="val" id="bw2-val">4</span>
-      </div>
-    </div>
+      <div id="userPresets"></div>
+
+    </div><!-- /hud-body -->
   </div>
 
   <div id="info">
     <div>DRAG to orbit &nbsp;|&nbsp; SCROLL to zoom</div>
+    <div>DRAG BODY to reposition</div>
     <div id="time-display">T = 0.00</div>
   </div>
 

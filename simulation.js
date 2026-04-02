@@ -732,6 +732,77 @@ function saveImage() {
   link.click();
 }
 
+// ─── User Presets (localStorage) ─────────────────────────────────────────────
+
+const PRESET_KEY = '3bp-presets';
+
+function savePreset() {
+  const raw = prompt('Name this state:', new Date().toLocaleTimeString());
+  if (raw === null) return;
+  const name = raw.trim() || new Date().toLocaleTimeString();
+
+  const entry = {
+    name,
+    ts: Date.now(),
+    G: currentG,
+    bodies: bodies.map(b => ({
+      pos:  [b.pos.x,  b.pos.y,  b.pos.z],
+      vel:  [b.vel.x,  b.vel.y,  b.vel.z],
+      mass: b.mass,
+    })),
+  };
+
+  const list = JSON.parse(localStorage.getItem(PRESET_KEY) || '[]');
+  list.push(entry);
+  localStorage.setItem(PRESET_KEY, JSON.stringify(list));
+  renderPresets();
+}
+
+function loadUserPreset(idx) {
+  const list = JSON.parse(localStorage.getItem(PRESET_KEY) || '[]');
+  const p = list[idx];
+  if (!p) return;
+
+  currentG = p.G;
+  document.getElementById('gSlider').value = p.G;
+  document.getElementById('g-val').textContent = p.G.toFixed(1);
+  trailVisible = MAX_HISTORY;
+  document.getElementById('trailSlider').value = MAX_HISTORY;
+  document.getElementById('trail-val').textContent = '∞';
+
+  initBodies({
+    masses:     p.bodies.map(b => b.mass),
+    positions:  p.bodies.map(b => new THREE.Vector3(...b.pos)),
+    velocities: p.bodies.map(b => new THREE.Vector3(...b.vel)),
+  });
+}
+
+function deleteUserPreset(idx) {
+  const list = JSON.parse(localStorage.getItem(PRESET_KEY) || '[]');
+  list.splice(idx, 1);
+  localStorage.setItem(PRESET_KEY, JSON.stringify(list));
+  renderPresets();
+}
+
+function renderPresets() {
+  const list = JSON.parse(localStorage.getItem(PRESET_KEY) || '[]');
+  const container = document.getElementById('userPresets');
+  container.innerHTML = '';
+  list.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'preset-row';
+    row.innerHTML =
+      `<span class="preset-name" title="${p.name}">${p.name}</span>` +
+      `<button class="preset-load" onclick="window._3bp_load(${i})">▶</button>` +
+      `<button class="preset-del"  onclick="window._3bp_del(${i})">×</button>`;
+    container.appendChild(row);
+  });
+}
+
+// Expose for inline onclick
+window._3bp_load = loadUserPreset;
+window._3bp_del  = deleteUserPreset;
+
 // ─── Drag to Reposition ───────────────────────────────────────────────────────
 
 function initDrag() {
@@ -869,10 +940,15 @@ function bindUI() {
     if (!key || !CHOREOGRAPHIES[key]) return;
     focusedBody = null;
     [0, 1, 2].forEach(i => document.getElementById(`focus${i}`).classList.remove('active'));
+    // Exact physics required
     currentG = 1.0;
     document.getElementById('gSlider').value = '1';
     document.getElementById('g-val').textContent = '1.0';
-    // Show full history so the pattern becomes visible
+    // Auto-speed: period ∝ scale^1.5 — run at 5× so one orbit takes ~20 s
+    speedMult = 5;
+    document.getElementById('speed').value = '5';
+    document.getElementById('speed-val').textContent = '5.0';
+    // Full history visible from the start
     trailVisible = MAX_HISTORY;
     document.getElementById('trailSlider').value = MAX_HISTORY;
     document.getElementById('trail-val').textContent = '∞';
@@ -895,6 +971,18 @@ function bindUI() {
       bwVal.textContent = brushWidths[i].toFixed(0);
     });
   }
+
+  // ── User presets ──────────────────────────────────────────────────────────
+  document.getElementById('savePresetBtn').addEventListener('click', savePreset);
+
+  // Mobile HUD toggle
+  document.getElementById('hud-header').addEventListener('click', () => {
+    if (window.innerWidth > 700) return;
+    const hud = document.getElementById('hud');
+    const arrow = document.getElementById('hud-toggle-arrow');
+    hud.classList.toggle('expanded');
+    arrow.textContent = hud.classList.contains('expanded') ? '▼' : '▲';
+  });
 
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -922,6 +1010,7 @@ function main() {
   initBodies(randomInitialConditions());
   bindUI();
   initDrag();
+  renderPresets();
   clock = new THREE.Clock();
   animate();
 }
