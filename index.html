@@ -176,7 +176,7 @@
 
     <div class="control-row">
       <label>Speed</label>
-      <input type="range" id="speed" min="0.1" max="5" step="0.05" value="1">
+      <input type="range" id="speed" min="0.1" max="50" step="0.5" value="1">
       <span class="val" id="speed-val">1.0</span>
     </div>
 
@@ -225,6 +225,25 @@
       <button id="pauseBtn">PAUSE</button>
       <button id="fig8Btn">FIGURE-8</button>
     </div>
+
+    <div class="btn-row" style="margin-top:8px">
+      <button id="canvasModeBtn">CANVAS MODE</button>
+    </div>
+
+    <div id="brushPanel" style="display:none">
+      <hr class="divider">
+      <div style="font-size:10px;color:#7799cc;letter-spacing:2px;margin-bottom:8px">BRUSH</div>
+      <div class="btn-row">
+        <button class="brush-btn active" id="brush0">ROUND</button>
+        <button class="brush-btn" id="brush1">CALLIG</button>
+        <button class="brush-btn" id="brush2">SPRAY</button>
+        <button class="brush-btn" id="brush3">INK</button>
+        <button class="brush-btn" id="brush4">MARKER</button>
+      </div>
+      <div class="btn-row" style="margin-top:6px">
+        <button id="clearPaintBtn">CLEAR</button>
+      </div>
+    </div>
   </div>
 
   <div id="info">
@@ -232,6 +251,7 @@
     <div id="time-display">T = 0.00</div>
   </div>
 
+  <canvas id="paintCanvas" style="position:fixed;top:0;left:0;pointer-events:none;display:none;z-index:1"></canvas>
   <script type="module" src="simulation.js"></script>
 </body>
 </html>

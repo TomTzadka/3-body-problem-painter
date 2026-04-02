@@ -33,6 +33,14 @@ let speedMult = 1.0;
 let trailVisible = 350;   // how many trail points to show (MAX_HISTORY = all)
 let focusedBody = null;   // null | 0 | 1 | 2
 
+// Canvas / paint mode
+let canvasMode = false;
+let brushStyle  = 0;      // 0=round 1=calligraphy 2=spray 3=ink 4=marker
+let paintCtx    = null;
+let lastScreenPos = [];   // THREE.Vector2 per body, screen coords
+
+const BRUSH_COLORS = ['#cc2200', '#1155ee', '#cc8800'];
+
 // ─── Physics ──────────────────────────────────────────────────────────────────
 
 function computeDerivatives(state, masses, G) {
@@ -191,6 +199,152 @@ function makeGlowTexture(size = 128) {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, size, size);
   return new THREE.CanvasTexture(canvas);
+}
+
+// ─── Paint / Canvas Mode ──────────────────────────────────────────────────────
+
+function worldToScreen(pos) {
+  const v = new THREE.Vector3(pos.x, pos.y, pos.z);
+  v.project(camera);
+  return new THREE.Vector2(
+    (v.x + 1) / 2 * window.innerWidth,
+    (-v.y + 1) / 2 * window.innerHeight
+  );
+}
+
+function clearPaintCanvas() {
+  const pc = document.getElementById('paintCanvas');
+  if (!paintCtx) return;
+  paintCtx.clearRect(0, 0, pc.width, pc.height);
+  paintCtx.fillStyle = '#ffffff';
+  paintCtx.fillRect(0, 0, pc.width, pc.height);
+}
+
+function drawBrushStroke(idx, from, to) {
+  const ctx = paintCtx;
+  const color = BRUSH_COLORS[idx];
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 0.5) return;
+
+  ctx.save();
+
+  switch (brushStyle) {
+    case 0: // Round
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.globalAlpha = 0.85;
+      ctx.stroke();
+      break;
+
+    case 1: { // Calligraphy — width varies with angle
+      const angle = Math.atan2(dy, dx);
+      const w = Math.abs(Math.sin(angle - Math.PI / 4)) * 12 + 1;
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = w;
+      ctx.lineCap = 'round';
+      ctx.globalAlpha = 0.88;
+      ctx.stroke();
+      break;
+    }
+
+    case 2: { // Spray — scattered dots around path
+      const steps = Math.max(1, Math.floor(dist / 4));
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.35;
+      for (let s = 0; s <= steps; s++) {
+        const t = s / steps;
+        const cx = from.x + dx * t;
+        const cy = from.y + dy * t;
+        const r = 12;
+        for (let k = 0; k < 12; k++) {
+          const a = Math.random() * Math.PI * 2;
+          const rr = Math.random() * r;
+          ctx.beginPath();
+          ctx.arc(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, 1 + Math.random() * 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      break;
+    }
+
+    case 3: // Ink — thin with glow
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.lineCap = 'round';
+      ctx.globalAlpha = 0.95;
+      ctx.shadowBlur = 5;
+      ctx.shadowColor = color;
+      ctx.stroke();
+      break;
+
+    case 4: // Marker — wide, semi-transparent
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 16;
+      ctx.lineCap = 'square';
+      ctx.globalAlpha = 0.22;
+      ctx.stroke();
+      break;
+  }
+
+  ctx.restore();
+}
+
+function toggleCanvasMode() {
+  canvasMode = !canvasMode;
+  const pc = document.getElementById('paintCanvas');
+  const brushPanel = document.getElementById('brushPanel');
+  const btn = document.getElementById('canvasModeBtn');
+
+  if (canvasMode) {
+    pc.width  = window.innerWidth;
+    pc.height = window.innerHeight;
+    pc.style.width  = window.innerWidth  + 'px';
+    pc.style.height = window.innerHeight + 'px';
+    pc.style.display = 'block';
+    paintCtx = pc.getContext('2d');
+    clearPaintCanvas();
+    lastScreenPos = bodies.map(b => worldToScreen(b.pos));
+
+    scene.background = new THREE.Color(0xffffff);
+    scene.fog = null;
+    gridMesh.visible = false;
+    starField.visible = false;
+    // dim body lights in canvas mode
+    bodies.forEach(b => b.mesh.children.forEach(c => { if (c.isPointLight) c.intensity = 0; }));
+
+    brushPanel.style.display = 'block';
+    btn.textContent = 'SPACE MODE';
+    btn.classList.add('active');
+  } else {
+    pc.style.display = 'none';
+    paintCtx = null;
+
+    scene.background = new THREE.Color(0x000008);
+    scene.fog = new THREE.FogExp2(0x000010, 0.008);
+    gridMesh.visible = true;
+    starField.visible = true;
+    bodies.forEach(b => b.mesh.children.forEach(c => { if (c.isPointLight) c.intensity = 2.5; }));
+
+    brushPanel.style.display = 'none';
+    btn.textContent = 'CANVAS MODE';
+    btn.classList.remove('active');
+  }
 }
 
 // ─── Trail ────────────────────────────────────────────────────────────────────
@@ -461,7 +615,16 @@ function animate() {
 
   // Update trail visibility (every frame, reflects slider changes instantly)
   for (const b of bodies) {
-    b.trail.updateVisible(trailVisible);
+    b.trail.updateVisible(canvasMode ? 0 : trailVisible);
+  }
+
+  // Paint brush strokes on 2D canvas
+  if (canvasMode && paintCtx) {
+    for (let i = 0; i < bodies.length; i++) {
+      const cur = worldToScreen(bodies[i].pos);
+      drawBrushStroke(i, lastScreenPos[i], cur);
+      lastScreenPos[i] = cur;
+    }
   }
 
   // Smoothly track focused body
@@ -522,6 +685,17 @@ function bindUI() {
     document.getElementById(`focus${i}`).addEventListener('click', () => setFocus(i));
   }
 
+  document.getElementById('canvasModeBtn').addEventListener('click', toggleCanvasMode);
+
+  document.getElementById('clearPaintBtn').addEventListener('click', clearPaintCanvas);
+
+  for (let i = 0; i < 5; i++) {
+    document.getElementById(`brush${i}`).addEventListener('click', () => {
+      brushStyle = i;
+      document.querySelectorAll('.brush-btn').forEach((b, j) => b.classList.toggle('active', j === i));
+    });
+  }
+
   pauseBtn.addEventListener('click', () => {
     paused = !paused;
     pauseBtn.textContent = paused ? 'RESUME' : 'PAUSE';
@@ -544,6 +718,14 @@ function bindUI() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    if (canvasMode) {
+      const pc = document.getElementById('paintCanvas');
+      pc.width  = window.innerWidth;
+      pc.height = window.innerHeight;
+      pc.style.width  = window.innerWidth  + 'px';
+      pc.style.height = window.innerHeight + 'px';
+      clearPaintCanvas();
+    }
   });
 }
 
