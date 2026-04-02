@@ -216,8 +216,7 @@ function clearPaintCanvas() {
   const pc = document.getElementById('paintCanvas');
   if (!paintCtx) return;
   paintCtx.clearRect(0, 0, pc.width, pc.height);
-  paintCtx.fillStyle = '#ffffff';
-  paintCtx.fillRect(0, 0, pc.width, pc.height);
+  // transparent — 3D scene background shows through
 }
 
 function drawBrushStroke(idx, from, to) {
@@ -321,11 +320,15 @@ function toggleCanvasMode() {
     clearPaintCanvas();
     lastScreenPos = bodies.map(b => worldToScreen(b.pos));
 
-    scene.background = new THREE.Color(0xffffff);
+    scene.background = new THREE.Color(0xf5f5f0);
     scene.fog = null;
-    gridMesh.visible = false;
     starField.visible = false;
-    // dim body lights in canvas mode
+    // restyle grid for light background (graph-paper look)
+    gridMesh.material.color.set(0x334466);
+    gridMesh.material.emissive.set(0x000000);
+    gridMesh.material.emissiveIntensity = 0;
+    gridMesh.material.opacity = 0.22;
+    // dim body point lights so they don't blow out the white bg
     bodies.forEach(b => b.mesh.children.forEach(c => { if (c.isPointLight) c.intensity = 0; }));
 
     brushPanel.style.display = 'block';
@@ -337,8 +340,12 @@ function toggleCanvasMode() {
 
     scene.background = new THREE.Color(0x000008);
     scene.fog = new THREE.FogExp2(0x000010, 0.008);
-    gridMesh.visible = true;
     starField.visible = true;
+    // restore grid to space style
+    gridMesh.material.color.set(0x0033aa);
+    gridMesh.material.emissive.set(0x001155);
+    gridMesh.material.emissiveIntensity = 0.8;
+    gridMesh.material.opacity = 0.35;
     bodies.forEach(b => b.mesh.children.forEach(c => { if (c.isPointLight) c.intensity = 2.5; }));
 
     brushPanel.style.display = 'none';
